@@ -13,4 +13,20 @@ Parameters | Description
 
 ## **Returns**
 If the task was created successfully then pdPASS is returned. Otherwise errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY is returned
+
+# TaskHandle_t
+Type by which tasks are referenced. For example, a call to xTaskCreate returns (via a pointer parameter) an TaskHandle_t variable that can then be used as a parameter to vTaskDelete to delete the task.
+
+# vTaskDelete
+
+**void vTaskDelete( TaskHandle_t xTask )**
+
+Remove a task from the RTOS kernels management. The task being deleted will be removed from all ready, blocked, suspended and event lists.
+
+NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted. It is therefore important that the idle task is not starved of microcontroller processing time if your application makes any calls to vTaskDelete (). Memory allocated by the task code is not automatically freed, and should be freed before the task is deleted.
+
+Parameters | Description
+--- | --- 
+**xTask** | The handle of the task to be deleted. Passing NULL will cause the calling task to be deleted.
+
             
