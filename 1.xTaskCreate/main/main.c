@@ -17,7 +17,7 @@ void mytask1(void *p){
 
 void app_main(){
     char* name="Gautam";
-    xTaskCreate(mytask1,"task1",512,name,5,taskHandle);
+    xTaskCreate(mytask1,"task1",2048,name,5,taskHandle);
     //parameters 
     //pvTaskCode:-Pointer to the task entry function (just the name of the function that implements the task
     //pcName:-A descriptive name for the task. This is mainly used to facilitate debugging, but can also be used to obtain a task handle.
