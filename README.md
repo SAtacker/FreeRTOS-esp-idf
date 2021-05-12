@@ -7,6 +7,8 @@ Learning FreeRTOS in ESP-IDF
   * [What should be considered when choosing an RTOS](#what-should-be-considered-when-choosing-an-rtos)
   * [How does the RTOS affect the development of the design](#how-does-the-rtos-affect-the-development-of-the-design)
   * [Scheduling Algorithm](#scheduling-algorithm) 
+    * [Preemptive Scheduling](#preemptive-scheduling)
+    * [Non Preemptive Scheduling](#non-preemptive-scheduling)
   * [Difference between RTOS and GPOS](#difference-between-rtos-and-gpos)
 * [Introduction To FreeRTOS](#introduction-to-freertos)
   * [The Main Function](#the-main-function)
@@ -97,12 +99,45 @@ The RTOS needs to be of high quality and easy to use. Developing embedded projec
 
 ## Scheduling Algorithm
 
-### Difference between RTOS and GPOS
+* All operating systems use schedulers to allocate CPU time to tasks or threads. Because only one process can run at a given time on the CPU in case of a single core processor
+* A task can be in one of these four possible states such as running, ready, blocked, suspended. Only tasks that are in ready state can be picked by a scheduler depending on the scheduling policy.
+* Scheduling is the process of deciding which task should be executed at any point in time based on a predefined algorithm. The logic for the scheduling is implemented in a functional unit called the scheduler. 
+* There are many scheduling algorithms that can be used for scheduling task execution on a CPU. They can be classified into two main types: preemptive scheduling algorithms and non-preemptive scheduling algorithms.
+
+### Preemptive Scheduling
+
+* Preemptive scheduling allows the interruption of a currently running task, so another one with more “urgent” status can be run. The interrupted task is involuntarily moved by the scheduler from running state to ready state. This dynamic switching between tasks that this algorithm employs is, in fact, a form of multitasking. It requires assigning a priority level for each task. A running task can be interrupted if a task with a higher priority enters the queue.
+
+* As an example let’s have three tasks called Task 1, Task 2 and Task 3. Task 1 has the lowest priority and Task 3 has the highest priority. Their arrival times and execute times are listed in the table below.
+
+| Task Name | Arrival Time(μs) | Execute Time(μs) |
+| :---: | :----: | :----: |
+| Task 1 | 10 | 50 |
+| Task 2 | 40 | 50 |
+| Task 3 | 60 | 40 |
+
+* In above table we can see that Task 1 is the first to start executing, as it is the first one to arrive (at t = 10 μs ). Task 2 arrives at t = 40μs and since it has a higher priority, the scheduler interrupts the execution of Task 1 and puts Task 2 into running state. Task 3 which has the highest priority arrives at t = 60 μs. At this moment Task 2 is interrupted and Task 3 is put into running state. As it is the highest priority task it runs until it completes at t = 100 μs. Then Task 2 resumes its operation as the current highest priority task. Task 1 is the last to complete is operation.
+
+![](https://open4tech.com/wp-content/uploads/2019/11/preemptive_scheduling.jpg)
+
+* The main advantage of a preemptive scheduler is that it provides an excellent mechanism where the importance of every task may be precisely defined. On the other hand, it has the disadvantage that a high priority task may starve the CPU such that lower priority tasks can never have the chance to run.This can usually happen if there are programming errors such that the high priority task runs continuously without having to wait for any system resources and never stops
+
+* Most RTOS uses Preemptive scheduling.
+
+### Non Preemptive Scheduling
+* In non-preemptive scheduling, the scheduler has more restricted control over the tasks. It can only start a task and then it has to wait for the task to finish or for the task to voluntarily return the control. A running task can’t be stopped by the scheduler.
+* If we take the three tasks specified in the table from the previous chapter and schedule them using a non-preemptive algorithm we get the behavior shown in below figure.Once started, each task completes its operation and then the next one starts.
+
+![](https://open4tech.com/wp-content/uploads/2019/10/non_preemptive_scheduling.jpg)
+
+
+
+## Difference between RTOS and GPOS
 
 * The basic difference of using a GPOS or an RTOS lies in the nature of the system – i.e whether the system is “time critical” or not! A system can be of a single purpose or multiple purpose. Example of a “time critical system” is – Automated Teller Machines (ATM). Here an ATM card user is supposed to get his money from the teller machine within 4 or 5 seconds from the moment he press the confirmation button. The card user will not wait 5 minutes at the ATM after he pressed the confirm button. So an ATM is a time critical system. Where as a personal computer (PC) is not a time critical system. The purpose of a PC is multiple. A user can run many applications at the same time. After pressing the SAVE button of a finished document, there is no particular time limit that the doc should be saved within 5 seconds. It may take several minutes (in some cases) depending upon the number of tasks and processes running in parallel.
 
 | Characteristics | Real Time Operating System (RTOS) | General Purpose Operating System (GPOS) |
-| :-----: | :-: | :-: |
+| :---: | :----: | :----: |
 | Time Critical |An RTOS differs in that it typically provides a hard real time response, providing a fast, highly deterministic reaction to external events | OS’s typically provide a non-deterministic, soft real time response, where there are no guarantees as to when each task will complete, but they will try to stay responsive to the user. |
 | Task Scheduling | RTOS uses pre-emptive task scheduling method which is based on priority levels. Here a high priority process gets executed over the low priority ones. | In the case of a GPOS – task scheduling is not based on  “priority” always! GPOS is programmed to handle scheduling in such a way that it manages to achieve high throughput |
 | Hardware and Economical Factors | An RTOS is usually designed for a low end, stand alone device like an ATM, Vending machines, Kiosks etc. RTOS is light weight and small in size compared to a GPOS | A GPOS is made for high end, general purpose systems like a personal computer, a work station, a server system etc |
