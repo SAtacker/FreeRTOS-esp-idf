@@ -16,6 +16,7 @@ Learning FreeRTOS in ESP-IDF
   - [General Overview](#general-overview)
     - [Tasks](#tasks)
     - [Scheduling](#scheduling)
+    - [FreeRTOS Prioritized Preemptive Scheduling with Time Slicing](#freertos-prioritized-preemptive-scheduling-with-time-slicing)
     - [Context Switching](#context-switching)
   - [What Is Stack Memory](#what-is-stack-memory)
   - [Tech Stack Size](#tech-stack-size)
@@ -24,8 +25,6 @@ Learning FreeRTOS in ESP-IDF
   - [Controlling Task](#controlling-task)
   - [Some More](#some-more)
     - [Benchmarks](#benchmarks)
-- [benchmark the esp32 arduino core is 35% slower than esp-idf's FreeRTOS.](#benchmark-the-esp32-arduino-core-is-35-slower-than-esp-idfs-freertos)
-  - [FreeRTOS Prioritized Preemptive Scheduling with Time Slicing](#freertos-prioritized-preemptive-scheduling-with-time-slicing)
 - [Resources](#resources)
 
 
@@ -146,7 +145,6 @@ The RTOS needs to be of high quality and easy to use. Developing embedded projec
 
 * If kernel is not preemptible, then a request/call from kernel will override all other process and threads. For example:- a request from a driver or some other system service comes in, it is treated as a kernel call which will be served immediately overriding all other process and threads. In an RTOS the kernel is kept very simple and only very important service requests are kept within the kernel call. All other service requests are treated as external processes and threads. All such service requests from kernel are associated with a bounded latency in an RTOS. This ensures highly predictable and quick response from an RTOS.
 
-<<<<<<< HEAD
 ## Introduction to FreeRTOS
 - Kernel (Wikipedia Def): It is the "portion of the operating system code that is always resident in memory", and facilitates interactions between hardware and software components. 
 - FreeRTOS is Open Source (MIT + Commercial license) RTOS kernel for embedded devices. It has been ported
@@ -212,6 +210,39 @@ multi-tasking. However it is not concurrent.
   frequency.
 * The Kernel keeps checking if its time to unblock or wake a task.
   
+### FreeRTOS Prioritized Preemptive Scheduling with Time Slicing
+FreeRTOS kernel supports two types of scheduling policy: 
+
+* **Time Slicing Scheduling Policy** : This is also known as a round-robin algorithm. In this algorithm, all equal priority tasks get CPU in equal portions of CPU time. 
+* **Fixed Priority Preemptive Scheduling** : This scheduling algorithm selects tasks according to their priority. In other words, a high priority task always gets the CPU before a low priority task. A low priority task gets to execute only when there is no high priority task in the ready state. 
+
+FreeRTOS uses the combination of above two Scheduling Policy , so the scheduling policy is **FreeRTOS Prioritized Preemptive Scheduling with Time Slicing**
+
+* In this case, a scheduler can not change the priority of scheduled tasks. But tasks can change their own priority by using FreeRTOS priority changing API
+* Because this scheduling algorithm also uses Preemptive scheduling, therefore, a high priority task can immediately preempt a low priority running task. Whenever low priority task gets preempted by a high priority task, a low priority task enters the ready state and allows a high priority task to enter the running state.
+* The last part of this scheduling algorithm is a time-slicing feature. In this case, all equal priority tasks get shared CPU processing time. Time slicing is achieved by using FreeRTOS tick interrupts. 
+
+
+
+![](https://microcontrollerslab.com/wp-content/uploads/2020/06/FreeRTOS-Preemptive-scheduling-algorithm-example.jpg)
+
+This picture shows the timing diagram about the execution sequence of high, medium and low priority tasks.
+
+
+
+**Note** 
+
+* The idle task is created automatically when the RTOS scheduler is started to ensure there is always at least one task that is able to run. It is created at the lowest possible priority to ensure it does not use any CPU time if there are higher priority application tasks in the ready state.
+* *Periodic Tasks* : In periodic task, jobs are released at regular intervals. A periodic task is one which repeats itself after a fixed time interval
+* *Continuous Task* : A continuous processing task is a task that never enters the Blocked state
+* *Event Task* : The task scheduled to be invoked at occurence of particular event. 
+
+
+
+
+![](https://microcontrollerslab.com/wp-content/uploads/2020/06/FreeRTOS-Preemptive-time-slicing-scheduling-algorithm-example.jpg)
+
+* This diagram shows the execution sequence of tasks according to time-slicing policy.
 ### Context Switching
 
 * As a task executes it utilizes the processor / microcontroller registers and accesses RAM and ROM just as any other program. These resources together (the processor registers, stack, etc.) comprise the task execution context.
@@ -260,41 +291,7 @@ the execution sequencing after vTaskStartScheduler() has been called.
 ### Benchmarks
 According to [this](http://blob.tomerweller.com/esp32-first-steps) ring
 benchmark the esp32 arduino core is 35% slower than esp-idf's FreeRTOS.
-=======
-## FreeRTOS Prioritized Preemptive Scheduling with Time Slicing
-FreeRTOS kernel supports two types of scheduling policy: 
 
-* **Time Slicing Scheduling Policy** : This is also known as a round-robin algorithm. In this algorithm, all equal priority tasks get CPU in equal portions of CPU time. 
-* **Fixed Priority Preemptive Scheduling** : This scheduling algorithm selects tasks according to their priority. In other words, a high priority task always gets the CPU before a low priority task. A low priority task gets to execute only when there is no high priority task in the ready state. 
-
-FreeRTOS uses the combination of above two Scheduling Policy , so the scheduling policy is **FreeRTOS Prioritized Preemptive Scheduling with Time Slicing**
-
-* In this case, a scheduler can not change the priority of scheduled tasks. But tasks can change their own priority by using FreeRTOS priority changing API
-* Because this scheduling algorithm also uses Preemptive scheduling, therefore, a high priority task can immediately preempt a low priority running task. Whenever low priority task gets preempted by a high priority task, a low priority task enters the ready state and allows a high priority task to enter the running state.
-* The last part of this scheduling algorithm is a time-slicing feature. In this case, all equal priority tasks get shared CPU processing time. Time slicing is achieved by using FreeRTOS tick interrupts. 
-
-
-
-![](https://microcontrollerslab.com/wp-content/uploads/2020/06/FreeRTOS-Preemptive-scheduling-algorithm-example.jpg)
-
-This picture shows the timing diagram about the execution sequence of high, medium and low priority tasks.
-
-
-
-**Note** 
-
-* The idle task is created automatically when the RTOS scheduler is started to ensure there is always at least one task that is able to run. It is created at the lowest possible priority to ensure it does not use any CPU time if there are higher priority application tasks in the ready state.
-* *Periodic Tasks* : In periodic task, jobs are released at regular intervals. A periodic task is one which repeats itself after a fixed time interval
-* *Continuous Task* : A continuous processing task is a task that never enters the Blocked state
-* *Event Task* : The task scheduled to be invoked at occurence of particular event. 
-
-
-
-
-![](https://microcontrollerslab.com/wp-content/uploads/2020/06/FreeRTOS-Preemptive-time-slicing-scheduling-algorithm-example.jpg)
-
-* This diagram shows the execution sequence of tasks according to time-slicing policy.
->>>>>>> 887e60b8e9f454e0313185bf6aebf28220384cab
 
 # Resources
 * [FreeRTOS Documentation](https://www.freertos.org/Documentation/RTOS_book.html)
