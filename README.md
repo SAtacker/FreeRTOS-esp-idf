@@ -2,23 +2,28 @@
 Learning FreeRTOS in ESP-IDF
 
 # Table Of Contents
-* [What Is An RTOS](#what-is-an-rtos)
-  * [Why Use An RTOS](#why-use-an-rtos)
-  * [What should be considered when choosing an RTOS](#what-should-be-considered-when-choosing-an-rtos)
-  * [How does the RTOS affect the development of the design](#how-does-the-rtos-affect-the-development-of-the-design)
-  * [Scheduling Algorithm](#scheduling-algorithm) 
-    * [Preemptive Scheduling](#preemptive-scheduling)
-    * [Non Preemptive Scheduling](#non-preemptive-scheduling)
-  * [Difference between RTOS and GPOS](#difference-between-rtos-and-gpos)
-* [Introduction To FreeRTOS](#introduction-to-freertos)
-  * [FreeRTOS Prioritized Preemptive Scheduling with Time Slicing](#freertos-prioritized-preemptive-scheduling-with-time-slicing)
-  * [The Main Function](#the-main-function)
-  * [What Is Stack Memory](#what-is-stack-memory)
-  * [Tech Stack Size](#tech-stack-size)
-  * [Controlling Stacks](#controlling-stacks)
-  * [Simple Task](#simple-task)
-  * [Controlling Task](#controlling-task)
-* [FreeRTOS for ESP32](#freertos-for-esp32)
+- [FreeRTOS-esp-idf](#freertos-esp-idf)
+- [Table Of Contents](#table-of-contents)
+  - [What Is An RTOS](#what-is-an-rtos)
+  - [Why Use An RTOS](#why-use-an-rtos)
+  - [What should be considered when choosing an RTOS](#what-should-be-considered-when-choosing-an-rtos)
+  - [How does the RTOS affect the development of the design](#how-does-the-rtos-affect-the-development-of-the-design)
+  - [Scheduling Algorithm](#scheduling-algorithm)
+    - [Preemptive Scheduling](#preemptive-scheduling)
+    - [Non Preemptive Scheduling](#non-preemptive-scheduling)
+  - [Difference between RTOS and GPOS](#difference-between-rtos-and-gpos)
+  - [Introduction to FreeRTOS](#introduction-to-freertos)
+  - [General Overview](#general-overview)
+    - [Tasks](#tasks)
+    - [Scheduling](#scheduling)
+    - [FreeRTOS Prioritized Preemptive Scheduling with Time Slicing](#freertos-prioritized-preemptive-scheduling-with-time-slicing)
+    - [Context Switching](#context-switching)
+  - [What Is Stack Memory](#what-is-stack-memory)
+  - [Tech Stack Size](#tech-stack-size)
+  - [Controlling Stacks](#controlling-stacks)
+  - [Some More](#some-more)
+    - [Benchmarks](#benchmarks)
+  * [FreeRTOS for ESP32](#freertos-for-esp32)
   * [Creating And Deleting Tasks](#creating-and-deleting-tasks)
     * [xTaskCreate](#xtaskcreate)
     * [vTaskDelete](#vtaskdelete)
@@ -30,7 +35,7 @@ Learning FreeRTOS in ESP-IDF
       * [Mutex](#mutex)
       * [Binary Semaphore](#binary-semaphore)
       * [Counting Semaphore](#counting-semaphore)
-* [Resources](#resources)  
+- [Resources](#resources)
 
 
 
@@ -150,7 +155,72 @@ The RTOS needs to be of high quality and easy to use. Developing embedded projec
 
 * If kernel is not preemptible, then a request/call from kernel will override all other process and threads. For example:- a request from a driver or some other system service comes in, it is treated as a kernel call which will be served immediately overriding all other process and threads. In an RTOS the kernel is kept very simple and only very important service requests are kept within the kernel call. All other service requests are treated as external processes and threads. All such service requests from kernel are associated with a bounded latency in an RTOS. This ensures highly predictable and quick response from an RTOS.
 
-## FreeRTOS Prioritized Preemptive Scheduling with Time Slicing
+## Introduction to FreeRTOS
+- Kernel (Wikipedia Def): It is the "portion of the operating system code that is always resident in memory", and facilitates interactions between hardware and software components. 
+- FreeRTOS is Open Source (MIT + Commercial license) RTOS kernel for embedded devices. It has been ported
+  over to >35 uC platforms. 
+- Good Documentation , Small Memory Footprint , Modular Libraries and support
+  for 40+ Architectures , etc. are some more features of FreeRTOS.
+- Since 2017 Amazon has contributed in many updates to the original kernel apart
+  from AWS freeRTOS
+
+The structure of the FreeRTOS/Source directory is shown below.
+```
+FreeRTOS
+    |
+    +-Source        The core FreeRTOS kernel files
+        |
+        +-include   The core FreeRTOS kernel header files
+        |
+        +-Portable  Processor specific code.
+            |
+            +-Compiler x    All the ports supported for compiler x
+            +-Compiler y    All the ports supported for compiler y
+            +-MemMang       The sample heap implementations
+```
+
+Features Overview :
+- Tasks
+- Queues, Mutexes, Semaphores
+- Direct To Task Notifications
+- Stream and Message Buffers
+- Software Timers
+- Event Groups or Flags
+- Static vs Dynamic Memory
+- Heap Management
+- Stack Overflow Protection
+- Co-Routines (Deprecated)
+- Compile Time configurable
+- Additional Libraries
+   
+## General Overview
+
+### Tasks
+
+Each executing program is a task (or thread) under control of the operating
+system and hence if it can execute multiple tasks then it is said to be
+multi-tasking. However it is not concurrent.
+
+* A task is a sequential piece of code - it does not know when it is going to get suspended (swapped out or switched out) or resumed (swapped in or switched in) by the kernel and does not even know when this has happened. 
+
+* Consider the example of a task being suspended immediately before executing an instruction that sums the values contained within two processor registers. While the task is suspended other tasks will execute and may modify the processor register values. Upon resumption the task will not know that the processor registers have been altered - if it used the modified values the summation would result in an incorrect value.
+
+### Scheduling
+
+* The scheduler is the part of the kernel responsible for deciding which task
+  should be executing at any particular time. The kernel can suspend and later
+  resume a task many times during the task lifetime. 
+
+![Scheduling](https://www.freertos.org/fr-content-src/uploads/2018/07/RTExample.gif)
+
+* The RTOS created an Idle task which will execute only when there are no other tasks able to do so. The RTOS idle task is always in a state where it is able to execute.
+* When sleeping, an RTOS task will specify a time after which it requires 'waking'. When blocking, an RTOS task can specify a maximum time it wishes to wait.
+* Tick - The tick count variable is incremented with strict timing accuracy
+  allowing it to measure time to a resolution of chosen timer interrupt
+  frequency.
+* The Kernel keeps checking if its time to unblock or wake a task.
+  
+### FreeRTOS Prioritized Preemptive Scheduling with Time Slicing
 FreeRTOS kernel supports two types of scheduling policy: 
 
 * **Time Slicing Scheduling Policy** : This is also known as a round-robin algorithm. In this algorithm, all equal priority tasks get CPU in equal portions of CPU time. 
@@ -183,6 +253,55 @@ This picture shows the timing diagram about the execution sequence of high, medi
 ![](https://microcontrollerslab.com/wp-content/uploads/2020/06/FreeRTOS-Preemptive-time-slicing-scheduling-algorithm-example.jpg)
 
 * This diagram shows the execution sequence of tasks according to time-slicing policy.
+### Context Switching
+
+* As a task executes it utilizes the processor / microcontroller registers and accesses RAM and ROM just as any other program. These resources together (the processor registers, stack, etc.) comprise the task execution context.
+
+![Img](https://www.freertos.org/fr-content-src/uploads/2018/07/ExeContext.gif)
+
+* The error that we stumbled upon during task execution (that the summation gave
+  wrong result because the registers were manipulated by some other task) needed
+  some "context".
+* It is essential that upon resumption a task has a context identical to that
+  immediately prior to its suspension. FreeRTOS does so by saving the context of
+  a task as it is suspended and restored prior to its execution.
+* The process of saving the context of a task being suspended and restoring the context of a task being resumed is called context switching.
+
+![PremptiveContext](https://www.freertos.org/fr-content-src/uploads/2018/07/TickISR.gif)
+- Referring to the numbers in the diagram above:
+ - At (1) the RTOS idle task is executing.
+ - At (2) the RTOS tick occurs, and control transfers to the tick ISR (3).
+- The RTOS tick ISR makes vControlTask ready to run, and as vControlTask has a
+  higher priority than the RTOS idle task, switches the context to that of
+  vControlTask.
+- As the execution context is now that of vControlTask, exiting the ISR (4)
+  returns control to vControlTask, which starts executing (5).
+- A context switch occurring in this way is said to be Preemptive, as the
+  interrupted task is preempted without suspending itself voluntarily.
+
+* Read more about [Saving Task Context](https://www.freertos.org/implementation/a00016.html)
+   
+A FreeRTOS application will start up and execute just like a non-RTOS
+application until vTaskStartScheduler() is called. vTaskStartScheduler() is
+normally called from the application's main() function. The RTOS only controls
+the execution sequencing after vTaskStartScheduler() has been called.
+
+## What Is Stack Memory
+
+## Tech Stack Size
+
+## Controlling Stacks
+
+## Simple Task
+
+## Controlling Task
+
+## Some More
+
+### Benchmarks
+According to [this](http://blob.tomerweller.com/esp32-first-steps) ring
+benchmark the esp32 arduino core is 35% slower than esp-idf's FreeRTOS.
+
 
 # FreeRTOS for ESP32
 
