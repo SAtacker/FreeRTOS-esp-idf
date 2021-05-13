@@ -288,13 +288,70 @@ the execution sequencing after vTaskStartScheduler() has been called.
 
 ## What Is Stack Memory
 
-## Tech Stack Size
+* The stack is an area of RAM where a program stores temporary data during the execution of code blocks. Typically statically allocated, the stack is operates on a “last in, first out” basis. The life span of variables on the stack is limited to the duration of the function.
+* What uses Stack Memory?
+  * Local Variables of the task.
+  * Function calls (function parameters + function return address)
+  * Local variables of functions your task calls.
+  
+```
+void hello_world_task(void* p)
+{
+    char mem[128];
+    char *amool = char* malloc(32);
+    while(1) {
+      foo();
+    }
+}
+//The task above uses 128 + 4 (used to hold amool pointer , rest is heap) + <bytes used by foo> bytes of stack.
+```
 
+## Tech Stack Size
+* Depends on how much memory a program is using (including its variables,
+  function call depth ) . 
+* For example printf uses 1024 bytes. It is recommended to put 512 + estimated
+  stack space as stack size.
+  
 ## Controlling Stacks
 
+* When FreeRTOSrequires  RAM,  instead  of  calling  malloc(), it  calls  pvPortMalloc().   When RAM is being freed, instead of calling free(),the kernel calls vPortFree().  pvPortMalloc() has the same prototype as the standard C library malloc()function, and vPortFree() has the same prototype as the standard C library free()function.pvPortMalloc()  and  vPortFree()  are  public  functions,  so can  also  be  called  from application code.
+* Refer
+  [this](http://socialledge.com/sjsu/images/d/dc/CmpE146RefFiles_StackAndHeap.pdf)
+  for more info on how freeRTOS will behave with stacks.
+  
 ## Simple Task
+* Below is a simple task example that prints a message once a second. Note that vTaskStartScheduler() never returns and FreeRTOS will begin servicing the tasks at this point. Also note that every task must have an infinite loop and NEVER EXIT.
+
+```
+void hello_world_task(void* p)
+{
+    while(1) {
+        puts("Hello World!");
+        vTaskDelay(1000);
+    }
+}
+
+int main()
+{
+    xTaskCreate(hello_world_task, (signed char*)"task_name", STACK_BYTES(2048), 0, 1, 0);
+    vTaskStartScheduler();
+
+    return -1;
+}
+```
 
 ## Controlling Task
+In FreeRTOS, you have precise control of when tasks will use the CPU. The rules are simple:
+
+* Task with highest priority will run first, and never give up the CPU until it sleeps
+* If 2 or more tasks with the same priority do not give up the CPU (they don't sleep), then FreeRTOS will share the CPU between them (time slice).
+
+Here are some of the ways you can give up the CPU:
+
+* vTaskDelay() - This simply puts the task to "sleep"; you decide how much you want to sleep.
+* xQueueSend() - If the Queue you are sending to is full, this task will sleep (block).
+* xQueueReceive() - If the Queue you are reading from is empty, this task will sleep (block).
+* xSemaphoreTake() - Task will sleep if the semaphore is taken by somebody else.
 
 ## Some More
 
