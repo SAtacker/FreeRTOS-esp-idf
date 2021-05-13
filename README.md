@@ -25,6 +25,8 @@ Learning FreeRTOS in ESP-IDF
     - [Benchmarks](#benchmarks)
   * [FreeRTOS for ESP32](#freertos-for-esp32)
   * [Creating And Deleting Tasks](#creating-and-deleting-tasks)
+    * [xTaskCreate](#xtaskcreate)
+    * [vTaskDelete](#vtaskdelete)
   * [Delays](#delays)
   * [Suspending And Resuming Task](#suspending-and-resuming-task) 
   * [FreeRTOS InterTask Communication](#freertos-intertask-communication)
@@ -358,8 +360,135 @@ According to [this](http://blob.tomerweller.com/esp32-first-steps) ring
 benchmark the esp32 arduino core is 35% slower than esp-idf's FreeRTOS.
 
 
+# FreeRTOS for ESP32
+
+* Many manufacturers produce SoC with freeRTOS support as it is most *peer-reviewed* rtos. Expressif included [freeRTOS](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/freertos.html) in its latest version ESP – IDF.
+* The Espressif Internet Development Framework (ESP-IDF) uses FreeRTOS to make better use of the two high speed processors and manage the numerous built-in peripherals.
+* It is done by creating tasks,let's look at creating task,
+
+## Creating And Deleting Tasks
+* We have discussed about the FreeRTOS task, In ESP-IDF too we have FreeRTOS api to create as well as delete tasks.
+* We must also know that there is always an idle task running when there are no task scheduled to prevent RTOS from crashing.
+
+### xTaskCreate
+
+* ```c 
+    static BaseType_t xTaskCreate(TaskFunction_t  pvTaskCode, 
+                                  const char      *constpcName, 
+                                  const uint32_t  usStackDepth, 
+                                  void            *constpvParameters, 
+                                  UBaseType_t     uxPriority, 
+                                  TaskHandle_t    *constpvCreatedTask)
+  ```
+* Description :- xTaskCreate() can only be used to create a task that has unrestricted access to the entire microcontroller memory map.
+
+Parameters | Description
+--- | --- 
+**pvTaskCode** | Pointer to the task entry function (just the name of the function that implements the task)
+**pcName** | A descriptive name for the task. This is mainly used to facilitate debugging, but can also be used to obtain a task handle.
+**usStackDepth**|The number of words (not bytes!) to allocate for use as the task’s stack. For example, if the stack is 16-bits wide and usStackDepth is 100, then 200 bytes will be allocated for use as the task’s stack.
+**pvParameters**|A value that will passed into the created task as the task’s parameter.It can be set to be NULL if there is no parameters.
+**uxPriority**|The priority at which the created task will execute.This should be between 1-10 for general use.
+**pxCreatedTask**|Used to pass a handle to the created task out of the xTaskCreate() function. pxCreatedTask is optional and can be set to NULL.
+
+* **Example** :- This example will create two tasks with equal priorities. In this example It is also demonstrated how to pass paramters to the task.
+
+```c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+void task1(void * params)
+{
+  while (true)
+  {
+    printf("reading temperature from %s\n", (char *) params);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
+
+void task2(void * params) 
+{
+  while (true)
+  {
+    printf("reading humidity from %s\n", (char *) params);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+  }
+}
+
+void app_main(void)
+{
+   const char* task1_paramter = "task 1";
+   const char* task2_paramter = "task 2"; 
+   xTaskCreate(&task1, "temperature reading", 2048, (void*) task1_paramter, 2, NULL);
+   xTaskCreate(&task2, "humidity reading", 2048, (void*)task2_paramter, 2, NULL);
+}
+
+```
+### vTaskDelete
+
+* ```c
+  void vTaskDelete( TaskHandle_t xTask )
+  ```
+
+* **Description** :- Remove a task from the RTOS kernels management. The task being deleted will be removed from all ready, blocked, suspended and event lists.
+
+NOTE: The idle task is responsible for freeing the RTOS kernel allocated memory from tasks that have been deleted. It is therefore important that the idle task is not starved of microcontroller processing time if your application makes any calls to vTaskDelete (). Memory allocated by the task code is not automatically freed, and should be freed before the task is deleted.
+
+Parameters | Description
+--- | --- 
+**xTask** | The handle of the task to be deleted. Passing NULL will cause the calling task to be deleted.
+
+* Example :- This example is similar to the previous example , but in this we will delete one task using Task Handler , other task by simply passing NULL in vTaskDelete api.
+ ```c
+ #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+TaskHandle_t task2_handler=NULL;
+
+void task1(void *params)
+{
+
+    for (int i = 0; i < 5; i++)
+    {
+        printf("reading temperature from %s\n", (char *)params);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    vTaskDelete(NULL);
+}
+
+void task2(void *params)
+{
+    for (int i = 0; i < 5; i++)
+    {
+        printf("reading humidity from %s\n", (char *)params);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+    if(task2_handler!=NULL){
+        vTaskDelete(task2_handler);
+    }
+    
+}
+
+void app_main(void)
+{
+    const char *task1_paramter = "task 1";
+    const char *task2_paramter = "task 2";
+    xTaskCreate(&task1, "temperature reading", 2048, (void *)task1_paramter, 2, NULL);
+    xTaskCreate(&task2, "humidity reading", 2048, (void *)task2_paramter, 2, &task2_handler);
+}
+ 
+ ```
+
 # Resources
 * [FreeRTOS Documentation](https://www.freertos.org/Documentation/RTOS_book.html)
 * [ESP IDF FreeRTOS Documentation](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/freertos.html)
+* [FreeRTOS Features specific to ESP IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/freertos_additions.html)
 
 
