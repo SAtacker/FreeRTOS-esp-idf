@@ -28,7 +28,13 @@ Learning FreeRTOS in ESP-IDF
     * [xTaskCreate](#xtaskcreate)
     * [vTaskDelete](#vtaskdelete)
   * [Delays](#delays)
-  * [Suspending And Resuming Task](#suspending-and-resuming-task) 
+    * [pdMS_TO_TICKS](#pdms_to_ticks)
+    * [vTaskDelay](#vtaskdelay)
+    * [vTaskDelayUntil](#vtaskdelayuntil)
+    * [Difference between vTaskDelay and vTaskDelayUntil](#difference-between-vtaskdelay-and-vtaskdelayuntil)
+  * [Suspending And Resuming Task](#suspending-and-resuming-task)
+    * [vTaskSuspend](#vtasksuspend)
+    * [vTaskResume](#vtaskresume) 
   * [FreeRTOS InterTask Communication](#freertos-intertask-communication)
     * [Queue Communication](#queue-communication)
     * [Semaphores](#semaphores)
@@ -322,7 +328,7 @@ void hello_world_task(void* p)
 ## Simple Task
 * Below is a simple task example that prints a message once a second. Note that vTaskStartScheduler() never returns and FreeRTOS will begin servicing the tasks at this point. Also note that every task must have an infinite loop and NEVER EXIT.
 
-```
+```c
 void hello_world_task(void* p)
 {
     while(1) {
@@ -485,6 +491,173 @@ void app_main(void)
 }
  
  ```
+## Delays
+* Delay is used to suspend execution of a task for a particular time. 
+* Whenever one task enters delay state, the other tasks runs and vice-versa.
+
+Why not use Hardware Timers for Delays?
+* Although using Hardware Timers for delays is much more efficient than software based delays, ultimately the availability of such Timers depends on your Hardware.
+* Moreover in a complex or large implementation you might not have the luxury of using Hardware Timers(either due to cost, space or internal hardware constraints) and hence would have to resort to using Software based delays.
+
+### pdMS_TO_TICKS
+```c
+TickType_t pdMS_TO_TICKS(uint32_t millis)
+
+```
+* **Description** :- The pdMS_TO_TICKS() API converts your millisecond requirement to FreeRTOS Ticks.
+
+Parameters | Description
+--- | --- 
+**millis** | The time in milliseconds that is to be converted into freeRTOS ticks
+
+* The FreeRTOS Kernel uses Ticks to schedule and keep track of the various tasks in a microcontroller up to 1KHZ.
+* Example :- If your FreeRTOS is configured to use a frequency of 100HZ, your tick rate would be 10ms. If the task needs to be delayed by 500ms, the TickType_t would be 50 (500/10).
+* To avoid unnecessary math and computation on the user’s end the MACRO pdMS_TO_TICKS is very useful.
+
+### vTaskDelay
+```c
+void vTaskDelay(TickType_t xTicksToDelay)
+
+```
+* **Description** :- This function sends that particular task into the blocked state for a set amount of Ticks.
+
+Parameters | Description
+--- | --- 
+**xTicksToDelay** | No. of ticks to be delayed 
+
+### vTaskDelayUntil
+
+```c
+
+void vTaskDelayUntil(TickType_t *pxPreviousWakeTime, TickType_t xTimeIncrement)
+
+```
+
+* **Description** :- Places the task that calls this function into the Blocked state until that absolute time is reached.This function is very useful for Periodic Tasks where a constant execution frequency is of the utmost importance.
+
+Parameters | Description
+--- | --- 
+**pxPreviousWakeTime** | Pointer to a variable that holds the time at which the task was last unblocked. The variable must be initialised with the current time prior to its first use.Following this the variable is automatically updated within vTaskDelayUntil().
+**xTimeIncrement** | The cycle time period. The task will be unblocked at time (pxPreviousWakeTime + xTimeIncrement). Calling vTaskDelayUntil with the same xTimeIncrement parameter value will cause the task to execute with a fixed interval period.
+
+### Difference between vTaskDelay and vTaskDelayUntil
+
+vTaskDelay | vTaskDelayUntil
+--- | ---
+In vTaskDelay you say how long after calling vTaskDelay you want to be woken | In vTaskDelayUntil you say the time at which you want to be woken
+The parameter in vTaskDelay is the delay period in number of ticks from now | The parameter in vTaskDelayUntil is the absolute time in ticks at which you want to be woken calculated as an increment from the time you were last woken.
+vTaskDelay is relative to the function itself | vTaskDelayUntil is absolute in terms of the ticks set by scheduler and FreeRTOS Kernel.
+
+Example 1:- 
+```c
+
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+TaskHandle_t taskHandle1=NULL;
+TaskHandle_t taskHandle2=NULL;
+
+void myTask1(void *p)
+{
+    while(1)
+    {
+        printf("hello world\n");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+void myTask2(void *p)
+{
+    TickType_t mylastunblock=xTaskGetTickCount();
+    while(1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        printf("SRA is Great\n");
+        vTaskDelayUntil(&mylastunblock,pdMS_TO_TICKS(5000));
+    }
+}
+
+void app_main()
+{
+    xTaskCreate(myTask1,"Task 1",2048,NULL,5,taskHandle1);
+    xTaskCreate(myTask2,"Task 2",2048,NULL,5,taskHandle2);
+}
+
+```
+
+* If we run the Example 1, In myTask2 , there will be a delay of 1 sec, then "SRA is Great" will be printed, and since there was already a delay of 1 sec since the start of the task , the vTaskDelayUntil will just delay for additional 4 sec instead of 5 secs. Therefore vTaskDelayUntil ensured that since the start of the task there is no more as well as no less delay than 5 secs.
+
+Example 2 :- 
+```c
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+TaskHandle_t taskHandle1=NULL;
+TaskHandle_t taskHandle2=NULL;
+
+void myTask1(void *p)
+{
+    while(1)
+    {
+        printf("hello world\n");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+void myTask2(void *p)
+{
+    TickType_t mylastunblock=xTaskGetTickCount();
+    while(1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        printf("SRA is Great\n");
+        
+        // instead of using vTaskDelayUntil we used vTaskDelay
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
+void app_main()
+{
+    xTaskCreate(myTask1,"Task 1",2048,NULL,5,taskHandle1);
+    xTaskCreate(myTask2,"Task 2",2048,NULL,5,taskHandle2);
+}
+```
+
+* If we run the Example 2, In myTask2 , there will be a delay of 1 sec, then "SRA is Great" will be printed, and then there will be an additional delay of 5 sec, taking the total delay in the task to 6 secs.
+
+## Suspending And Resuming Task
+
+* We have seen how to create the task as well as delete it. We have also seen how to delay a Task.
+* But we may need to stop the execution of any task until specified to resume the execution , that's where suspension of Task comes in.
+* ESP-IDF also provides with the FreeRTOS api to suspend as well as resume the suspended task.
+
+### vTaskSuspend
+```c
+void vTaskSuspend( TaskHandle_t xTaskToSuspend )
+```
+* **Description** :- Suspend any task. When suspended a task will never get any microcontroller processing time, no matter what its priority.
+* Calls to vTaskSuspend are not accumulative - i.e. calling vTaskSuspend () twice on the same task still only requires one call to vTaskResume () to ready the suspended task.
+
+Parameters | Description
+--- | --- 
+**xTaskToSuspend** | Handle to the task being suspended. Passing a NULL handle will cause the calling task to be suspended.
+
+### vTaskResume
+```c
+void vTaskResume( TaskHandle_t xTaskToResume )
+
+```
+* **Description** :- Resumes a suspended task.
+
+Parameters | Description
+--- | --- 
+**xTicksToResume** | Handle to the task being readied
+
+Example :- 
+
 
 # Resources
 * [FreeRTOS Documentation](https://www.freertos.org/Documentation/RTOS_book.html)
