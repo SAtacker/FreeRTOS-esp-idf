@@ -37,6 +37,9 @@ Learning FreeRTOS in ESP-IDF
     * [vTaskResume](#vtaskresume) 
   * [FreeRTOS InterTask Communication](#freertos-intertask-communication)
     * [Queue Communication](#queue-communication)
+      * [xQueueCreate](#xqueuecreate)
+      * [xQueueSend](#xqueuesend)
+      * [xQueueReceive](#xqueuereceive)
     * [Semaphores](#semaphores)
       * [Mutex](#mutex)
       * [Binary Semaphore](#binary-semaphore)
@@ -656,8 +659,150 @@ Parameters | Description
 --- | --- 
 **xTicksToResume** | Handle to the task being readied
 
-Example :- 
+Example :- In this example task2 is suspending task1 after a 5 sec delay ,after the delay of another 5 sec task1 is resumed.
 
+```c
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+TaskHandle_t taskhandle1=NULL;
+TaskHandle_t taskhandle2=NULL;
+
+void myTask1(void *p){
+    int count =0;
+    while(1){
+        printf("Hello World: %d\n",count++);
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
+
+}
+
+void myTask2(void *p){
+    while(1){
+        vTaskDelay(5000/portTICK_PERIOD_MS);
+        vTaskSuspend(taskhandle1);
+        vTaskDelay(5000/portTICK_PERIOD_MS);
+        vTaskResume(taskhandle1);
+    }
+}
+
+void app_main(){
+    xTaskCreate(myTask1,"Task 1",2048,NULL,5,&taskhandle1);
+    xTaskCreate(myTask2,"Task 2",2048,NULL,5,&taskhandle2);
+}
+
+```
+# FreeRTOS InterTask Communication
+* Till Now we have seen examples where task are independent of each other. But what if we need to implement tasks which are dependent on each other and they need to communicate with each other.
+* The term inter-task communication comprises all mechanisms serving to exchange information among tasks
+* FreeRTOS also provides api for task to communicate amongst each other.
+ 
+## Queue Communication
+* A queue is a simple FIFO system with atomic reads and writes. “Atomic operations” are those that cannot be interrupted by other tasks during their execution. This ensures that another task cannot overwrite our data before it is read by the intended target.
+* Note that in FreeRTOS, information is copied into a queue by value and not by reference
+
+![](https://www.digikey.de/maker-media/88d32074-22e7-4fc3-943f-9e59b06dede9)
+
+
+### xQueueCreate
+```c
+QueueHandle_t xQueueCreate( UBaseType_t uxQueueLength,UBaseType_t uxItemSize );
+```
+
+* **Description** Creates a new queue and returns a handle by which the queue can be referenced.
+* Each queue requires RAM that is used to hold the queue state, and to hold the items that are contained in the queue (the queue storage area). 
+* If a queue is created using xQueueCreate() then the required RAM is automatically allocated from the FreeRTOS heap. If a queue is created using xQueueCreateStatic() then the RAM is provided by the application writer, which results in a greater number of parameters, but allows the RAM to be statically allocated at compile time
+
+Parameters|Description
+--- | ---
+**uxQueueLength**|Handle to the task being suspended. Passing a NULL handle will cause the calling task to be suspended.
+**uxItemSize**|The size, in bytes, required to hold each item in the queue.Items are queued by copy, not by reference, so this is the number of bytes that will be copied for each queued item. Each item in the queue must be the same size.
+
+* **RETURN:-** If the queue is created successfully then a handle to the created queue is returned. If the memory required to create the queue could not be allocated then NULL is returned.
+
+### xQueueSend
+```c
+BaseType_t xQueueSend(QueueHandle_t xQueue,const void * pvItemToQueue,TickType_t xTicksToWait)
+```
+* **Description** :- Post an item on a queue. The item is queued by copy, not by reference. 
+* This function must not be called from an interrupt service routine. See xQueueSendFromISR() for an alternative which may be used in an ISR.
+
+Parameters|Description
+--- | ---
+**xQueue**|The handle to the queue on which the item is to be posted.
+**pvItemToQueue**|A pointer to the item that is to be placed on the queue. The size of the items the queue will hold was defined when the queue was created, so this many bytes will be copied from pvItemToQueue into the queue storage area.
+**xTicksToWait**|The maximum amount of time the task should block waiting for space to become available on the queue, should it already be full. The call will return immediately if the queue is full and xTicksToWait is set to 0. The time is defined in tick periods so the constant portTICK_PERIOD_MS should be used to convert to real time if this is required.
+
+* **RETURN:-** pdTRUE if the item was successfully posted, otherwise errQUEUE_FULL
+
+### xQueueReceive
+```c
+BaseType_t xQueueReceive(QueueHandle_t xQueue,void *pvBuffer,TickType_t xTicksToWait)
+```
+
+* **Description** :- Receive an item from a queue. The item is received by copy so a buffer of adequate size must be provided.
+* The number of bytes copied into the buffer was defined when the queue was created.
+* This function must not be used in an interrupt service routine. See xQueueReceiveFromISR for an alternative that can.
+
+Parameters|Description
+--- | ---
+**xQueue**|The handle to the queue on which the item is to be received.
+**pvBuffer**|Pointer to the buffer into which the received item will be copied.
+**xTicksToWait**|The maximum amount of time the task should block waiting for an item to receive should the queue be empty at the time of the call. Setting xTicksToWait to 0 will cause the function to return immediately if the queue is empty. The time is defined in tick periods so the constant portTICK_PERIOD_MS should be used to convert to real time if this is required.
+
+* **RETURN:-** pdTRUE if an item was successfully received from the queue, otherwise pdFALSE.
+
+* Example
+
+```c
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+
+QueueHandle_t queue;
+
+void sendingTheCount(void *p){
+    int count=0 ;
+    
+    while(1){
+        count++;
+        printf("Received message \n");
+        long ok=xQueueSend(queue,&count,1000/portTICK_PERIOD_MS);
+        if(ok){
+            printf("added message to queue\n");
+        }
+        else{
+            printf("failed to add message to the queue\n");
+        }
+        vTaskDelay(5000/portTICK_PERIOD_MS);
+    }
+}
+
+void Task1(void *params){
+    while(true){
+        int rxInt;
+        if(xQueueReceive(queue,&rxInt,5000/portTICK_PERIOD_MS)){
+            printf("doing something with count %d\n\n",rxInt);
+        }
+        
+    }
+}
+
+void app_main(void){
+    queue=xQueueCreate(3,sizeof(int));
+    xTaskCreate(&sendingTheCount,"get HTTP",2048,NULL,2,NULL);
+    xTaskCreate(&Task1,"Task 1",2048,NULL,1,NULL);
+}
+```
+
+![](https://icircuit.net/wp-content/uploads/2017/08/queue_animation.gif)
+
+* In main(), we create the Queue before creating tasks, otherwise sending to un-initialized Queue will crash the system.
+* In sendingTheCount(), we add the count to the queue
+* In Task1(), we are reading from the queue and printing the count.
+* If the priority of the receiving queue(Task1) is higher, FreeRTOS will switch tasks the moment xQueueSend() happens, and the next line inside sendingTheCount will not execute since CPU will be switched over to Task1.
 
 # Resources
 * [FreeRTOS Documentation](https://www.freertos.org/Documentation/RTOS_book.html)
