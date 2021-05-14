@@ -797,8 +797,6 @@ void app_main(void){
 }
 ```
 
-![](https://icircuit.net/wp-content/uploads/2017/08/queue_animation.gif)
-
 * In main(), we create the Queue before creating tasks, otherwise sending to un-initialized Queue will crash the system.
 * In sendingTheCount(), we add the count to the queue
 * In Task1(), we are reading from the queue and printing the count.
