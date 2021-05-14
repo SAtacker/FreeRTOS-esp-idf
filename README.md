@@ -348,6 +348,7 @@ int main()
     return -1;
 }
 ```
+* Note - This is non esp-idf freeRTOS like code
 
 ## Controlling Task
 In FreeRTOS, you have precise control of when tasks will use the CPU. The rules are simple:
@@ -361,6 +362,86 @@ Here are some of the ways you can give up the CPU:
 * xQueueSend() - If the Queue you are sending to is full, this task will sleep (block).
 * xQueueReceive() - If the Queue you are reading from is empty, this task will sleep (block).
 * xSemaphoreTake() - Task will sleep if the semaphore is taken by somebody else.
+
+## Semaphores
+* Semaphore is simply a variable that is non-negative and shared between threads. This variable is used to solve the critical section problem and to achieve process synchronization in the multiprocessing environment. 
+* Two types of Semaphores
+  - Binary - Its value is either 0 or 1 and also called as `mutex lock` .
+    - It Doesn't provide priority inversion mechanism (Priority inversion occurs
+      when a high-priority task is forced to wait for the release of a shared
+      resource owned by a lower-priority task ).
+    - Better suited for helper tasks for interrupts  
+    -  For example, if you have an interrupt and you don't want to do a lot of processing inside the interrupt, you can use a helper task. To accomplish this, you can perform a semaphore give operation inside the interrupt, and a dedicated task will sleep or block on xSemaphoreTake() operation.
+    ```
+    // Somewhere in main() :
+    SemaphoreHandle_t event_signal;
+    vSemaphoreCreateBinary( event_signal ); // Create the semaphore
+    xSemaphoreTake(event_signal, 0);        // Take semaphore after creating it.
+
+
+    void System_Interrupt()
+    {
+      /* We have finished accessing the shared resource.Release the semaphore. */
+        xSemaphoreGiveFromISR(event_signal);
+    }
+
+    void system_interrupt_task()
+    {
+        while(1) {
+            if(xSemaphoreTake(event_signal, 9999999)) {
+              /* We were able to obtain the semaphore and can now access the shared resource. */
+              
+                // Process the interrupt
+            }
+        }
+    }
+    ```
+    - The above code shows example of a deferred interrupt processing. The idea is that you don't want to process the interrupt inside System_Interrupt() because you'd be in a critical section with system interrupts globally disabled, therefore, you can potentially lock up the system or destroy real-time processing if the interrupt processing takes too long.
+
+    - Another way to use binary semaphore is to wake up one task from another
+      task by giving the semaphore. So the semaphore will essentially act like a
+      signal that may indicate: "Something happened, now go do the work in
+      another task". 
+    - Example - Binary semaphore is used to indicate when an I2C
+      read operation is done, and the interrupt gives this semaphore. 
+    - Note that
+      when you create a binary semaphore in FreeRTOS, it is ready to be taken,
+      so you may want to take the semaphore after you create it such that the
+      task waiting on this semaphore will block until given by somebody. 
+
+  - Counting Semaphore - Multiple Values
+    - More than one user is allowed access to a resource
+
+## Mutex
+  - One of the best example of a mutex is to guard a resource or a door with a key. For instance, let's say you have an SPI BUS, and only one task should use it at a time. Mutex provides mutual exclusion with priority inversion mechanism. Mutex will only allow ONE task to get past xSemaphoreTake() operation and other tasks will be put to sleep if they reach this function at the same time. 
+  ```
+  // In main(), initialize your Mutex:
+  SemaphoreHandle_t spi_bus_lock = xSemaphoreCreateMutex();
+
+  void task_one()
+  {
+      while(1) {
+          if(xSemaphoreTake(spi_bus_lock, 1000)) {
+              // Use Guarded Resource
+  
+              // Give Semaphore back:
+              xSemaphoreGive(spi_bus_lock);
+          }
+      }
+  }
+  void task_two()
+  {
+      while(1) {
+          if(xSemaphoreTake(spi_bus_lock, 1000)) {
+              // Use Guarded Resource
+  
+              // Give Semaphore back:
+              xSemaphoreGive(spi_bus_lock);
+          }
+      }
+  }
+  ```
+  - In the code above, only ONE task will enter its xSemaphoreTake() branch. If both tasks execute the statement at the same time, one will get the mutex, the other task will sleep until the mutex is returned by the task that was able to obtain it in the first place. 
 
 ## Some More
 
