@@ -21,6 +21,8 @@ Learning FreeRTOS in ESP-IDF
   - [What Is Stack Memory](#what-is-stack-memory)
   - [Tech Stack Size](#tech-stack-size)
   - [Controlling Stacks](#controlling-stacks)
+  - [Semaphores](#semaphores)
+  - [Mutex](#mutex)
   - [Some More](#some-more)
     - [Benchmarks](#benchmarks)
   * [FreeRTOS for ESP32](#freertos-for-esp32)
