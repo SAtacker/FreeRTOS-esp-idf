@@ -21,7 +21,7 @@ Learning FreeRTOS in ESP-IDF
   - [What Is Stack Memory](#what-is-stack-memory)
   - [Tech Stack Size](#tech-stack-size)
   - [Controlling Stacks](#controlling-stacks)
-  - [Semaphores](#semaphores)
+  - [Basics of Semaphores](#basics-of-semaphores)
   - [Mutex](#mutex)
   - [Some More](#some-more)
     - [Benchmarks](#benchmarks)
@@ -365,7 +365,7 @@ Here are some of the ways you can give up the CPU:
 * xQueueReceive() - If the Queue you are reading from is empty, this task will sleep (block).
 * xSemaphoreTake() - Task will sleep if the semaphore is taken by somebody else.
 
-## Semaphores
+## Basics of Semaphores
 * Semaphore is simply a variable that is non-negative and shared between threads. This variable is used to solve the critical section problem and to achieve process synchronization in the multiprocessing environment. 
 * Two types of Semaphores
   - Binary - Its value is either 0 or 1 and also called as `mutex lock` .
