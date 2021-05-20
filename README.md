@@ -21,8 +21,9 @@ Learning FreeRTOS in ESP-IDF
   - [What Is Stack Memory](#what-is-stack-memory)
   - [Tech Stack Size](#tech-stack-size)
   - [Controlling Stacks](#controlling-stacks)
+  - [Basics of Queue](#basics-of-queue)
   - [Basics of Semaphores](#basics-of-semaphores)
-  - [Mutex](#mutex)
+  - [Basics of Mutex](#basics-of-mutex)
   - [Some More](#some-more)
     - [Benchmarks](#benchmarks)
   * [FreeRTOS for ESP32](#freertos-for-esp32)
@@ -42,10 +43,12 @@ Learning FreeRTOS in ESP-IDF
       * [xQueueCreate](#xqueuecreate)
       * [xQueueSend](#xqueuesend)
       * [xQueueReceive](#xqueuereceive)
-    * [Semaphores](#semaphores)
-      * [Mutex](#mutex)
-      * [Binary Semaphore](#binary-semaphore)
-      * [Counting Semaphore](#counting-semaphore)
+    * [Binary Semaphore](#binary-semaphore)
+      * [xSemaphoreCreateBinary](#xsemaphorecreatebinary)
+      * [xSemaphoreGive](#xsemaphoregive)
+      * [xSemaphoreTake](#xsemaphoretake)
+    * [Mutex](#mutex)   
+      * [xSemaphoreCreateMutex](#xsemaphorecreatemutex)
 - [Resources](#resources)
 
 
@@ -365,6 +368,34 @@ Here are some of the ways you can give up the CPU:
 * xQueueReceive() - If the Queue you are reading from is empty, this task will sleep (block).
 * xSemaphoreTake() - Task will sleep if the semaphore is taken by somebody else.
 
+## Basics of Queue
+* A queue is a simple FIFO system with atomic reads and writes. “Atomic operations” are those that cannot be interrupted by other tasks during their execution. This ensures that another task cannot overwrite our data before it is read by the intended target.
+* Note that in FreeRTOS, information is copied into a queue by value and not by reference
+
+![](https://www.digikey.de/maker-media/88d32074-22e7-4fc3-943f-9e59b06dede9)
+
+* A practical example of a queue may be to start another task to start doing its work while the primary task continues doing its own work independently. In the following example, we demonstrate how a terminal task can kick-off another task to begin playing an mp3 song while it operates independently to handle the next command from a terminal (user input).
+
+```c
+void terminal_task(void* p)
+{
+     // Assume you got a user-command to play an mp3:
+     xQueueSend(song_name_queue, "song_name.mp3", 0);
+  
+     ...
+}
+
+void mp3_play_task(void* p)
+{
+    char song_name[32];
+    while(1) {
+        if(xQueueReceive(song_name_queue, &song_name[0], portMAX_DELAY)) {
+            // Start to play the song.
+        }
+    }
+}
+```
+
 ## Basics of Semaphores
 * Semaphore is simply a variable that is non-negative and shared between threads. This variable is used to solve the critical section problem and to achieve process synchronization in the multiprocessing environment. 
 * Two types of Semaphores
@@ -414,7 +445,7 @@ Here are some of the ways you can give up the CPU:
   - Counting Semaphore - Multiple Values
     - More than one user is allowed access to a resource
 
-## Mutex
+## Basics of Mutex
   - One of the best example of a mutex is to guard a resource or a door with a key. For instance, let's say you have an SPI BUS, and only one task should use it at a time. Mutex provides mutual exclusion with priority inversion mechanism. Mutex will only allow ONE task to get past xSemaphoreTake() operation and other tasks will be put to sleep if they reach this function at the same time. 
   ```
   // In main(), initialize your Mutex:
@@ -814,11 +845,6 @@ void app_main(){
 * FreeRTOS also provides api for task to communicate amongst each other.
  
 ## Queue Communication
-* A queue is a simple FIFO system with atomic reads and writes. “Atomic operations” are those that cannot be interrupted by other tasks during their execution. This ensures that another task cannot overwrite our data before it is read by the intended target.
-* Note that in FreeRTOS, information is copied into a queue by value and not by reference
-
-![](https://www.digikey.de/maker-media/88d32074-22e7-4fc3-943f-9e59b06dede9)
-
 
 ### xQueueCreate
 ```c
@@ -916,6 +942,236 @@ void app_main(void){
 * In sendingTheCount(), we add the count to the queue
 * In Task1(), we are reading from the queue and printing the count.
 * If the priority of the receiving queue(Task1) is higher, FreeRTOS will switch tasks the moment xQueueSend() happens, and the next line inside sendingTheCount will not execute since CPU will be switched over to Task1.
+
+## Binary Semaphore
+
+### xSemaphoreCreateBinary
+
+```c
+SemaphoreHandle_t xSemaphoreCreateBinary( void );
+```
+
+* **Description** :- Creates a binary semaphore, and returns a handle by which the semaphore can be referenced.
+* The semaphore is created in the 'empty' state, meaning the semaphore must first be given using the xSemaphoreGive() API function before it can subsequently be taken (obtained) using the xSemaphoreTake() function.
+
+* **RETURN:-** ```NULL``` If semaphore could not be created because there was insufficient FreeRTOS heap, else returns the handle by which the semaphore can be referenced.
+
+### xSemaphoreGive
+```c
+xSemaphoreGive( SemaphoreHandle_t xSemaphore );
+```
+* **Description** :- Macro to release a semaphore. The semaphore must have previously been created with a call to xSemaphoreCreateBinary(), xSemaphoreCreateMutex() or xSemaphoreCreateCounting().
+
+Parameters|Description
+--- | ---
+**xSemaphore** | A handle to the semaphore being released. This is the handle returned when the semaphore was created.
+
+* **RETURN** :- pdTRUE if the semaphore was released. pdFALSE if an error occurred.
+
+### xSemaphoreTake
+```c
+xSemaphoreTake( SemaphoreHandle_t xSemaphore,
+                 TickType_t xTicksToWait );
+```
+* **Description** :- Macro to obtain a semaphore. The semaphore must have previously been created with a call to xSemaphoreCreateBinary(), xSemaphoreCreateMutex() or xSemaphoreCreateCounting().
+
+Parameters|Description
+--- | ---
+**xSemaphore** | A handle to the semaphore being taken - obtained when the semaphore was created.
+**xTicksToWait** | The time in ticks to wait for the semaphore to become available. The macro portTICK_PERIOD_MS can be used to convert this to a real time. A block time of zero can be used to poll the semaphore.
+
+* **RETURN :- ** pdTRUE if the semaphore was obtained. pdFALSE if xTicksToWait expired without the semaphore becoming available.
+
+### EXAMPLE 
+```c
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "esp_log.h"
+
+SemaphoreHandle_t bi_sema = NULL;
+static int shared_int = 0;
+
+void led_blink_1()
+{
+    const char task[] = "led blink 1";
+    while (1)
+    {
+
+        if (bi_sema != NULL)
+        {
+            // See if we can obtain the semaphore.  If the semaphore is not
+            // available wait 10 ticks to see if it becomes free.
+            if (xSemaphoreTake(bi_sema, 10/portTICK_PERIOD_MS) == pdTRUE)
+            {
+                // We were able to obtain the semaphore and can now access the
+                // shared resource.
+                shared_int += 1;
+                // ...
+                ESP_LOGI(task,"Semaphore Taken Succesfully | Shared Res - %d", shared_int);
+                // We have finished accessing the shared resource.  Release the
+                // semaphore.
+                xSemaphoreGive(bi_sema);
+            }
+            else
+            {
+                // We could not obtain the semaphore and can therefore not
+                // access the shared resource safely.
+                ESP_LOGW(task, "Failed in taking Semaphore");
+            }
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void led_blink_2()
+{
+    const char task[] = "led blink 2";
+    while (1)
+    {
+        if (bi_sema != NULL)
+        {
+            // See if we can obtain the semaphore.  If the semaphore is not
+            // available wait 10 ticks to see if it becomes free.
+            if (xSemaphoreTake(bi_sema, 10/portTICK_PERIOD_MS) == pdTRUE)
+            {
+                // We were able to obtain the semaphore and can now access the
+                // shared resource.
+                shared_int -= 1;
+                // ...
+                ESP_LOGI(task,"Semaphore Taken Succesfully | Shared Res - %d", shared_int);
+                // We have finished accessing the shared resource.  Release the
+                // semaphore.
+                xSemaphoreGive(bi_sema);
+            }
+            else
+            {
+                // We could not obtain the semaphore and can therefore not
+                // access the shared resource safely.
+                ESP_LOGW(task, "Failed in taking Semaphore");
+            }
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void app_main()
+{
+    bi_sema = xSemaphoreCreateBinary();
+    // xSemaphoreCreateBinary() Creates a new binary semaphore instance, and
+    // returns a handle by which the new semaphore can be referenced.
+    
+    xSemaphoreGive(bi_sema);
+    // The semaphore must be given before it can be taken if calls are made
+    // using xSemaphoreCreateBinary()
+
+    xTaskCreate(&led_blink_1, "Led Blink 1", 4096, NULL, 0, NULL);
+    xTaskCreate(&led_blink_2, "Led Blink 2", 4096, NULL, 1, NULL);
+}
+```
+
+## Mutex
+### xSemaphoreCreateMutex
+```c
+SemaphoreHandle_t xSemaphoreCreateMutex( void )
+```
+* **Description** :- Creates a mutex, and returns a handle by which the created mutex can be referenced
+
+* **RETURN :- ** If the mutex type semaphore was created successfully then a handle to the created mutex is returned. If the mutex was not created because the memory required to hold the mutex could not be allocated then NULL is returned.
+
+### Example 
+
+```c
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "esp_log.h"
+
+SemaphoreHandle_t mutex_1  = NULL;
+SemaphoreHandle_t mutex_2  = NULL;
+
+static int shared_int = 0;
+
+void led_blink_1(void *paramter)
+{
+    const char task[] = "led blink 1";
+    while (1)
+    {
+
+        if (mutex_1 != NULL)
+        {
+            // See if we can obtain the semaphore.  If the semaphore is not
+            // available wait 10 ticks to see if it becomes free.
+            if (xSemaphoreTake(mutex_1, 1000/portTICK_PERIOD_MS) == pdTRUE)
+            {
+                // We were able to obtain the semaphore and can now access the
+                // shared resource.
+                shared_int += 1;
+                // ...
+                ESP_LOGI(task,"Semaphore Taken Succesfully | Shared Res - %d", shared_int);
+
+                vTaskDelay(1500/portTICK_PERIOD_MS);
+                // We have finished accessing the shared resource.  Release the
+                // semaphore.
+                xSemaphoreGive(mutex_1);
+            }
+            else
+            {
+                // We could not obtain the semaphore and can therefore not
+                // access the shared resource safely.
+                ESP_LOGW(task, "Failed in taking Semaphore");
+            }
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void led_blink_2(void *paramter)
+{
+    const char task[] = "led blink 2";
+    while (1)
+    {
+        if (mutex_2 != NULL)
+        {
+            // See if we can obtain the semaphore.  If the semaphore is not
+            // available wait 10 ticks to see if it becomes free.
+            if (xSemaphoreTake(mutex_2, 1000/portTICK_PERIOD_MS) == pdTRUE)
+            {
+                // We were able to obtain the semaphore and can now access the
+                // shared resource.
+                shared_int -= 1;
+                // ...
+                ESP_LOGI(task,"Semaphore Taken Succesfully | Shared Res - %d", shared_int);
+                // We have finished accessing the shared resource.  Release the
+                // semaphore.
+                xSemaphoreGive(mutex_2);
+            }
+            else
+            {
+                // We could not obtain the semaphore and can therefore not
+                // access the shared resource safely.
+                ESP_LOGW(task, "Failed in taking Semaphore");
+            }
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void app_main()
+{
+    mutex_1 = xSemaphoreCreateMutex();
+    mutex_2 = xSemaphoreCreateMutex();
+
+    // Semaphore cannot be used before a call to xSemaphoreCreateMutex().
+    // This is a macro so pass the variable in directly.
+
+    xTaskCreate(&led_blink_1, "Led Blink 1", 4096, NULL, 0, NULL);
+    xTaskCreate(&led_blink_2, "Led Blink 2", 4096, NULL, 1, NULL);
+}
+```
+
 
 # Resources
 * [FreeRTOS Documentation](https://www.freertos.org/Documentation/RTOS_book.html)
