@@ -25,7 +25,6 @@ Learning FreeRTOS in ESP-IDF
   - [Controlling Task](#controlling-task)
   - [Basics of Queue](#basics-of-queue)
   - [Basics of Semaphores](#basics-of-semaphores)
-- [## Mutex](#-mutex)
   - [Basics of Mutex](#basics-of-mutex)
   - [Some More](#some-more)
     - [Mutex Vs Semaphore](#mutex-vs-semaphore)
