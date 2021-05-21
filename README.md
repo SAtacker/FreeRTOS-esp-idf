@@ -21,40 +21,43 @@ Learning FreeRTOS in ESP-IDF
   - [What Is Stack Memory](#what-is-stack-memory)
   - [Tech Stack Size](#tech-stack-size)
   - [Controlling Stacks](#controlling-stacks)
-<<<<<<< HEAD
-  - [Basics of Semaphores](#basics-of-semaphores)
-  - [Mutex](#mutex)
-=======
+  - [Simple Task](#simple-task)
+  - [Controlling Task](#controlling-task)
+- [<<<<<<< HEAD](#-head)
   - [Basics of Queue](#basics-of-queue)
   - [Basics of Semaphores](#basics-of-semaphores)
+- [## Mutex](#-mutex)
   - [Basics of Mutex](#basics-of-mutex)
->>>>>>> 4850e333b37100280a1c5fd84ab86d9d4279b06b
   - [Some More](#some-more)
+    - [Mutex Vs Semaphore](#mutex-vs-semaphore)
     - [Benchmarks](#benchmarks)
-  * [FreeRTOS for ESP32](#freertos-for-esp32)
-  * [Creating And Deleting Tasks](#creating-and-deleting-tasks)
-    * [xTaskCreate](#xtaskcreate)
-    * [vTaskDelete](#vtaskdelete)
-  * [Delays](#delays)
-    * [pdMS_TO_TICKS](#pdms_to_ticks)
-    * [vTaskDelay](#vtaskdelay)
-    * [vTaskDelayUntil](#vtaskdelayuntil)
-    * [Difference between vTaskDelay and vTaskDelayUntil](#difference-between-vtaskdelay-and-vtaskdelayuntil)
-  * [Suspending And Resuming Task](#suspending-and-resuming-task)
-    * [vTaskSuspend](#vtasksuspend)
-    * [vTaskResume](#vtaskresume) 
-  * [FreeRTOS InterTask Communication](#freertos-intertask-communication)
-    * [Queue Communication](#queue-communication)
-      * [xQueueCreate](#xqueuecreate)
-      * [xQueueSend](#xqueuesend)
-      * [xQueueReceive](#xqueuereceive)
-    * [Binary Semaphore](#binary-semaphore)
-      * [xSemaphoreCreateBinary](#xsemaphorecreatebinary)
-      * [xSemaphoreGive](#xsemaphoregive)
-      * [xSemaphoreTake](#xsemaphoretake)
-    * [Mutex](#mutex)   
-      * [xSemaphoreCreateMutex](#xsemaphorecreatemutex)
+- [FreeRTOS for ESP32](#freertos-for-esp32)
+  - [Creating And Deleting Tasks](#creating-and-deleting-tasks)
+    - [xTaskCreate](#xtaskcreate)
+    - [vTaskDelete](#vtaskdelete)
+  - [Delays](#delays)
+    - [pdMS_TO_TICKS](#pdms_to_ticks)
+    - [vTaskDelay](#vtaskdelay)
+    - [vTaskDelayUntil](#vtaskdelayuntil)
+    - [Difference between vTaskDelay and vTaskDelayUntil](#difference-between-vtaskdelay-and-vtaskdelayuntil)
+  - [Suspending And Resuming Task](#suspending-and-resuming-task)
+    - [vTaskSuspend](#vtasksuspend)
+    - [vTaskResume](#vtaskresume)
+- [FreeRTOS InterTask Communication](#freertos-intertask-communication)
+  - [Queue Communication](#queue-communication)
+    - [xQueueCreate](#xqueuecreate)
+    - [xQueueSend](#xqueuesend)
+    - [xQueueReceive](#xqueuereceive)
+  - [Binary Semaphore](#binary-semaphore)
+    - [xSemaphoreCreateBinary](#xsemaphorecreatebinary)
+    - [xSemaphoreGive](#xsemaphoregive)
+    - [xSemaphoreTake](#xsemaphoretake)
+    - [EXAMPLE](#example)
+  - [Mutex](#mutex)
+    - [xSemaphoreCreateMutex](#xsemaphorecreatemutex)
+    - [Example](#example-1)
 - [Resources](#resources)
+- [Assignment](#assignment)
 
 
 
@@ -313,7 +316,7 @@ the execution sequencing after vTaskStartScheduler() has been called.
   * Function calls (function parameters + function return address)
   * Local variables of functions your task calls.
   
-```
+```c
 void hello_world_task(void* p)
 {
     char mem[128];
@@ -413,7 +416,8 @@ void mp3_play_task(void* p)
       resource owned by a lower-priority task ).
     - Better suited for helper tasks for interrupts  
     -  For example, if you have an interrupt and you don't want to do a lot of processing inside the interrupt, you can use a helper task. To accomplish this, you can perform a semaphore give operation inside the interrupt, and a dedicated task will sleep or block on xSemaphoreTake() operation.
-    ```
+  
+    ```c
     // Somewhere in main() :
     SemaphoreHandle_t event_signal;
     vSemaphoreCreateBinary( event_signal ); // Create the semaphore
@@ -459,7 +463,8 @@ void mp3_play_task(void* p)
 ## Basics of Mutex
 >>>>>>> 4850e333b37100280a1c5fd84ab86d9d4279b06b
   - One of the best example of a mutex is to guard a resource or a door with a key. For instance, let's say you have an SPI BUS, and only one task should use it at a time. Mutex provides mutual exclusion with priority inversion mechanism. Mutex will only allow ONE task to get past xSemaphoreTake() operation and other tasks will be put to sleep if they reach this function at the same time. 
-  ```
+  
+  ```c
   // In main(), initialize your Mutex:
   SemaphoreHandle_t spi_bus_lock = xSemaphoreCreateMutex();
 
@@ -869,7 +874,7 @@ QueueHandle_t xQueueCreate( UBaseType_t uxQueueLength,UBaseType_t uxItemSize );
 
 Parameters|Description
 --- | ---
-**uxQueueLength**|Handle to the task being suspended. Passing a NULL handle will cause the calling task to be suspended.
+**uxQueueLength**|The maximum number of items the queue can hold at any one time.
 **uxItemSize**|The size, in bytes, required to hold each item in the queue.Items are queued by copy, not by reference, so this is the number of bytes that will be copied for each queued item. Each item in the queue must be the same size.
 
 * **RETURN:-** If the queue is created successfully then a handle to the created queue is returned. If the memory required to create the queue could not be allocated then NULL is returned.
@@ -992,7 +997,7 @@ Parameters|Description
 **xSemaphore** | A handle to the semaphore being taken - obtained when the semaphore was created.
 **xTicksToWait** | The time in ticks to wait for the semaphore to become available. The macro portTICK_PERIOD_MS can be used to convert this to a real time. A block time of zero can be used to poll the semaphore.
 
-* **RETURN :- ** pdTRUE if the semaphore was obtained. pdFALSE if xTicksToWait expired without the semaphore becoming available.
+* **RETURN** :- pdTRUE if the semaphore was obtained. pdFALSE if xTicksToWait expired without the semaphore becoming available.
 
 ### EXAMPLE 
 ```c
@@ -1090,7 +1095,7 @@ SemaphoreHandle_t xSemaphoreCreateMutex( void )
 ```
 * **Description** :- Creates a mutex, and returns a handle by which the created mutex can be referenced
 
-* **RETURN :- ** If the mutex type semaphore was created successfully then a handle to the created mutex is returned. If the mutex was not created because the memory required to hold the mutex could not be allocated then NULL is returned.
+* **RETURN :-** If the mutex type semaphore was created successfully then a handle to the created mutex is returned. If the mutex was not created because the memory required to hold the mutex could not be allocated then NULL is returned.
 
 ### Example 
 
@@ -1102,7 +1107,6 @@ SemaphoreHandle_t xSemaphoreCreateMutex( void )
 #include "esp_log.h"
 
 SemaphoreHandle_t mutex_1  = NULL;
-SemaphoreHandle_t mutex_2  = NULL;
 
 static int shared_int = 0;
 
@@ -1140,16 +1144,17 @@ void led_blink_1(void *paramter)
     }
 }
 
+
 void led_blink_2(void *paramter)
 {
     const char task[] = "led blink 2";
     while (1)
     {
-        if (mutex_2 != NULL)
+        if (mutex_1 != NULL)
         {
             // See if we can obtain the semaphore.  If the semaphore is not
             // available wait 10 ticks to see if it becomes free.
-            if (xSemaphoreTake(mutex_2, 1000/portTICK_PERIOD_MS) == pdTRUE)
+            if (xSemaphoreTake(mutex_1, 1000/portTICK_PERIOD_MS) == pdTRUE)
             {
                 // We were able to obtain the semaphore and can now access the
                 // shared resource.
@@ -1158,7 +1163,7 @@ void led_blink_2(void *paramter)
                 ESP_LOGI(task,"Semaphore Taken Succesfully | Shared Res - %d", shared_int);
                 // We have finished accessing the shared resource.  Release the
                 // semaphore.
-                xSemaphoreGive(mutex_2);
+                xSemaphoreGive(mutex_1);
             }
             else
             {
@@ -1174,7 +1179,6 @@ void led_blink_2(void *paramter)
 void app_main()
 {
     mutex_1 = xSemaphoreCreateMutex();
-    mutex_2 = xSemaphoreCreateMutex();
 
     // Semaphore cannot be used before a call to xSemaphoreCreateMutex().
     // This is a macro so pass the variable in directly.
@@ -1190,4 +1194,14 @@ void app_main()
 * [ESP IDF FreeRTOS Documentation](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/freertos.html)
 * [FreeRTOS Features specific to ESP IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/freertos_additions.html)
 
+# Assignment 
+1)  Implement semaphore like functionality using queues.    
+    * If task A is locked then task B can only process if task A is freed. vice versa.
+(Explore [FreeRTOS Queue API](https://www.freertos.org/a00018.html))
+
+    * When boot button is pressed all tasks should get suspended if they were running and resumed if they were suspended. if suspended the tasks then you must also delete the queue. 
+
+2) See If the above task can be implemented using [Task Notifications](https://www.freertos.org/RTOS-task-notifications.html).
+   
+  
 
