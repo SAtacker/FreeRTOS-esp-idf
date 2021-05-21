@@ -1202,6 +1202,7 @@ void app_main()
     * When boot button is pressed all tasks should get suspended if they were running and resumed if they were suspended. if suspended the tasks then you must also delete the queue. 
 
 2) See If the above task can be implemented using [Task Notifications](https://www.freertos.org/RTOS-task-notifications.html).
-   
+
+3) See  [deadlock task](6.Deadlock/README.md)
   
 
