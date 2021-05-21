@@ -56,6 +56,10 @@ Learning FreeRTOS in ESP-IDF
     - [Example](#example-1)
 - [Resources](#resources)
 - [Assignment](#assignment)
+  - [1) Implement semaphore like functionality using queues.](#1-implement-semaphore-like-functionality-using-queues)
+  - [2) See If the above task can be implemented using Task Notifications.](#2-see-if-the-above-task-can-be-implemented-using-task-notifications)
+  - [3) Deadlock Example](#3-deadlock-example)
+    - [Task](#task)
 
 
 
@@ -1186,14 +1190,151 @@ void app_main()
 * [FreeRTOS Features specific to ESP IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/freertos_additions.html)
 
 # Assignment 
-1)  Implement semaphore like functionality using queues.    
-    * If task A is locked then task B can only process if task A is freed. vice versa.
+## 1) Implement semaphore like functionality using queues.    
+    * If task A is blocked then task B can only process if task A is freed. vice versa.
 (Explore [FreeRTOS Queue API](https://www.freertos.org/a00018.html))
 
     * When boot button is pressed all tasks should get suspended if they were running and resumed if they were suspended. if suspended the tasks then you must also delete the queue. 
 
-2) See If the above task can be implemented using [Task Notifications](https://www.freertos.org/RTOS-task-notifications.html).
+## 2) See If the above task can be implemented using [Task Notifications](https://www.freertos.org/RTOS-task-notifications.html).
 
-3) See  [deadlock task](6.Deadlock/README.md)
+## 3) Deadlock Example
+* FreeRTOS does not provide any solution to solve the problem of deadlock. 
+* It can be only solved while designing real-time embedded systems. 
+* We must design tasks such that the deadlock does not occur. 
+* One other possibility is to not use the indefinite waiting time for the tasks to acquire the mutex. 
+* Instead use a minimum possible blocked time for the task that will be waiting to take mutex. 
+* If a task is not able to take mutex within that time, it should release other resources also. 
+* In small real-time embedded systems, deadlock is not a big problem. 
+* Because an application designer can easily trace deadlock while designing an application and can remove it before deploying an application in the market. 
+
+### Task
+
+* Find the solution to deadlock
+  * By your method
+  * Try using mutex instead of semaphore
+  * Try changing the wait times
+* Refer this for additional info on [deadlock](https://www.quora.com/What-is-the-difference-between-binary-semaphore-and-mutex-in-the-context-of-RTOS-Can-the-priority-inversion-be-avoided-using-semaphore)
+
+```c
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "esp_log.h"
+
+SemaphoreHandle_t bi_sema_1 = NULL;
+SemaphoreHandle_t bi_sema_2 = NULL;
+static int shared_int = 0;
+
+void led_blink_1()
+{
+    const char task[] = "led blink 1";
+    while (1)
+    {
+
+        if (bi_sema_1 != NULL)
+        {
+            // See if we can obtain the semaphore.  If the semaphore is not
+            // available wait 10 ticks to see if it becomes free.
+            if (xSemaphoreTake(bi_sema_1, portMAX_DELAY) == pdTRUE)
+            {
+                // We were able to obtain the semaphore and can now access the
+                // shared resource.
+                shared_int += 1;
+                // ...
+                ESP_LOGI(task, "Semaphore 1 Taken Succesfully | Shared Res - %d", shared_int);
+                // We have finished accessing the shared resource.  Release the
+                // semaphore.
+                if (xSemaphoreTake(bi_sema_2, portMAX_DELAY) == pdTRUE)
+                {
+                    // We were able to obtain the semaphore and can now access the
+                    // shared resource.
+                    shared_int -= 1;
+                    // ...
+                    ESP_LOGI(task, "Semaphore 2 Taken Succesfully | Shared Res - %d", shared_int);
+                }
+                else
+                {
+                    // We could not obtain the semaphore and can therefore not
+                    // access the shared resource safely.
+                    ESP_LOGW(task, "Failed in taking Semaphore 2");
+                }
+                xSemaphoreGive(bi_sema_1);
+                xSemaphoreGive(bi_sema_2);
+            }
+            else
+            {
+                // We could not obtain the semaphore and can therefore not
+                // access the shared resource safely.
+                ESP_LOGW(task, "Failed in taking Semaphore 1");
+            }
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void led_blink_2()
+{
+    const char task[] = "led blink 2";
+    while (1)
+    {
+        if (bi_sema_2 != NULL)
+        {
+            // See if we can obtain the semaphore.  If the semaphore is not
+            // available wait 10 ticks to see if it becomes free.
+            if (xSemaphoreTake(bi_sema_2, portMAX_DELAY) == pdTRUE)
+            {
+                // We were able to obtain the semaphore and can now access the
+                // shared resource.
+                shared_int -= 1;
+                // ...
+                ESP_LOGI(task, "Semaphore 2 Taken Succesfully | Shared Res - %d", shared_int);
+                // We have finished accessing the shared resource.  Release the
+                // semaphore.
+                if (xSemaphoreTake(bi_sema_1, portMAX_DELAY) == pdTRUE)
+                {
+                    // We were able to obtain the semaphore and can now access the
+                    // shared resource.
+                    shared_int -= 1;
+                    // ...
+                    ESP_LOGI(task, "Semaphore 1 Taken Succesfully | Shared Res - %d", shared_int);
+                }
+                else
+                {
+                    // We could not obtain the semaphore and can therefore not
+                    // access the shared resource safely.
+                    ESP_LOGW(task, "Failed in taking Semaphore 1");
+                }
+                xSemaphoreGive(bi_sema_2);
+                xSemaphoreGive(bi_sema_1);
+            }
+            else
+            {
+                // We could not obtain the semaphore and can therefore not
+                // access the shared resource safely.
+                ESP_LOGW(task, "Failed in taking Semaphore 2");
+            }
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void app_main()
+{
+    bi_sema_1 = xSemaphoreCreateBinary();
+    bi_sema_2 = xSemaphoreCreateBinary();
+    // xSemaphoreCreateBinary() Creates a new binary semaphore instance, and
+    // returns a handle by which the new semaphore can be referenced.
+
+    xSemaphoreGive(bi_sema_1);
+    xSemaphoreGive(bi_sema_2);
+    // The semaphore must be given before it can be taken if calls are made
+    // using xSemaphoreCreateBinary()
+
+    xTaskCreate(&led_blink_1, "Led Blink 1", 4096, NULL, 0, NULL);
+    xTaskCreate(&led_blink_2, "Led Blink 2", 4096, NULL, 1, NULL);
+}
+```
   
 
