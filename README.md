@@ -23,7 +23,6 @@ Learning FreeRTOS in ESP-IDF
   - [Controlling Stacks](#controlling-stacks)
   - [Simple Task](#simple-task)
   - [Controlling Task](#controlling-task)
-- [<<<<<<< HEAD](#-head)
   - [Basics of Queue](#basics-of-queue)
   - [Basics of Semaphores](#basics-of-semaphores)
 - [## Mutex](#-mutex)
@@ -376,8 +375,6 @@ Here are some of the ways you can give up the CPU:
 * xQueueReceive() - If the Queue you are reading from is empty, this task will sleep (block).
 * xSemaphoreTake() - Task will sleep if the semaphore is taken by somebody else.
 
-<<<<<<< HEAD
-=======
 ## Basics of Queue
 * A queue is a simple FIFO system with atomic reads and writes. “Atomic operations” are those that cannot be interrupted by other tasks during their execution. This ensures that another task cannot overwrite our data before it is read by the intended target.
 * Note that in FreeRTOS, information is copied into a queue by value and not by reference
@@ -406,7 +403,6 @@ void mp3_play_task(void* p)
 }
 ```
 
->>>>>>> 4850e333b37100280a1c5fd84ab86d9d4279b06b
 ## Basics of Semaphores
 * Semaphore is simply a variable that is non-negative and shared between threads. This variable is used to solve the critical section problem and to achieve process synchronization in the multiprocessing environment. 
 * Two types of Semaphores
@@ -457,11 +453,7 @@ void mp3_play_task(void* p)
   - Counting Semaphore - Multiple Values
     - More than one user is allowed access to a resource
 
-<<<<<<< HEAD
-## Mutex
-=======
 ## Basics of Mutex
->>>>>>> 4850e333b37100280a1c5fd84ab86d9d4279b06b
   - One of the best example of a mutex is to guard a resource or a door with a key. For instance, let's say you have an SPI BUS, and only one task should use it at a time. Mutex provides mutual exclusion with priority inversion mechanism. Mutex will only allow ONE task to get past xSemaphoreTake() operation and other tasks will be put to sleep if they reach this function at the same time. 
   
   ```c
